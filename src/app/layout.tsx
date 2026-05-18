@@ -5,7 +5,11 @@ export const metadata: Metadata = {
   title: "Stax — Private AI hypertrophy coaching",
   description:
     "A private, invite-only AI coach for bodybuilding-style training. Stack the plates. Stack the gains.",
-  icons: { icon: "/icon.svg" },
+  icons: {
+    icon: "/icon.svg",
+    apple: "/apple-touch-icon.png",
+  },
+  manifest: "/manifest.webmanifest",
   applicationName: "Stax",
   appleWebApp: {
     capable: true,

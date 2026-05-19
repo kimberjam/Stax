@@ -1,6 +1,26 @@
+import { redirect } from "next/navigation";
 import { StaxLogo } from "@/components/stax-logo";
+import { getServerClient } from "@/lib/supabase/server";
 
-export default function Home() {
+export default async function Home() {
+  const supabase = await getServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const { data: appUser } = await supabase
+    .from("app_users")
+    .select("display_name, email, role")
+    .eq("id", user.id)
+    .single();
+
+  const display = appUser?.display_name || appUser?.email || user.email;
+  const role = appUser?.role ?? "user";
+
   return (
     <main className="min-h-screen flex items-center justify-center px-6 py-16">
       <div className="w-full max-w-md">
@@ -16,33 +36,51 @@ export default function Home() {
           </div>
         </div>
 
+        <section className="bg-slate800 border border-white/5 rounded-2xl p-6 mb-6">
+          <p className="uppercase text-[11px] tracking-widest text-steel mb-3">
+            Signed in
+          </p>
+          <h2 className="text-xl font-semibold mb-1">Hello, {display}.</h2>
+          <p className="text-sm text-steel mb-5">
+            Role: <span className="text-lime font-medium">{role}</span>
+          </p>
+
+          <form action="/auth/sign-out" method="post">
+            <button
+              type="submit"
+              className="w-full bg-obsidian border border-white/10 text-cream font-medium py-3 rounded-xl hover:bg-white/5 transition active:scale-[0.98]"
+            >
+              Sign out
+            </button>
+          </form>
+        </section>
+
         <section className="bg-slate800 border border-white/5 rounded-2xl p-6">
           <p className="uppercase text-[11px] tracking-widest text-steel mb-3">
-            Phase 0 — Hello, world
+            Phase 1 — Auth wired
           </p>
-          <h2 className="text-xl font-semibold mb-2">You&rsquo;re live locally.</h2>
+          <h2 className="text-xl font-semibold mb-2">Onboarding next.</h2>
           <p className="text-sm text-cream/80 mb-5 leading-relaxed">
-            This is the Stax shell. Auth, programming, and tracking come next.
-            See <code className="text-lime">SETUP.md</code> in the repo for
-            account and env steps.
+            Sign-in, sign-out, and protected routes are working. Coming up:
+            password reset, invites, and the onboarding wizard.
           </p>
 
           <ul className="space-y-2 text-sm">
             <li className="flex items-center justify-between">
-              <span>Next.js 14 + Tailwind</span>
+              <span>Sign in / sign out</span>
               <span className="text-lime">ready</span>
             </li>
             <li className="flex items-center justify-between">
-              <span>Supabase client wired</span>
-              <span className="text-lime">ready</span>
+              <span>Password reset</span>
+              <span className="text-amber">phase 1.2</span>
             </li>
             <li className="flex items-center justify-between">
-              <span>Initial migration written</span>
-              <span className="text-lime">ready</span>
+              <span>Invite system</span>
+              <span className="text-amber">phase 1.3</span>
             </li>
             <li className="flex items-center justify-between">
-              <span>Auth flow</span>
-              <span className="text-amber">phase 1</span>
+              <span>Onboarding wizard</span>
+              <span className="text-amber">phase 1.4</span>
             </li>
           </ul>
         </section>

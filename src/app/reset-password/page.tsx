@@ -1,26 +1,22 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { getServerClient } from "@/lib/supabase/server";
 import { StaxLogo } from "@/components/stax-logo";
-import { signIn } from "./actions";
+import { updatePassword } from "./actions";
 
-export default async function LoginPage({
+export default async function ResetPasswordPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; next?: string }>;
+  searchParams: Promise<{ error?: string }>;
 }) {
   const params = await searchParams;
   const errorMsg = params.error;
-  const nextPath = params.next ?? "/";
 
   const supabase = await getServerClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (user) {
-    redirect(
-      nextPath.startsWith("/") && !nextPath.startsWith("//") ? nextPath : "/",
-    );
+  if (!user) {
+    redirect("/login");
   }
 
   return (
@@ -31,7 +27,7 @@ export default async function LoginPage({
             <StaxLogo size={72} />
           </div>
           <h1 className="mt-4 text-3xl font-extrabold tracking-wide">STAX</h1>
-          <p className="text-steel text-sm mt-1">Sign in to continue</p>
+          <p className="text-steel text-sm mt-1">Set a new password</p>
         </div>
 
         {errorMsg && (
@@ -40,40 +36,44 @@ export default async function LoginPage({
           </div>
         )}
 
-        <form action={signIn} className="space-y-4">
-          <input type="hidden" name="next" value={nextPath} />
+        <p className="text-sm text-cream/80 mb-6 leading-relaxed">
+          Pick a strong password (at least 8 characters). You&rsquo;ll be signed
+          in once it&rsquo;s saved.
+        </p>
 
+        <form action={updatePassword} className="space-y-4">
           <div>
             <label
-              htmlFor="email"
+              htmlFor="password"
               className="block text-xs uppercase tracking-widest text-steel mb-2"
             >
-              Email
+              New password
             </label>
             <input
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="email"
+              id="password"
+              name="password"
+              type="password"
+              autoComplete="new-password"
               required
-              placeholder="you@example.com"
+              minLength={8}
               className="w-full bg-slate800 border border-white/10 rounded-xl px-4 py-3 text-cream placeholder-steel focus:outline-none focus:border-lime focus:ring-2 focus:ring-lime/30 transition"
             />
           </div>
 
           <div>
             <label
-              htmlFor="password"
+              htmlFor="confirm"
               className="block text-xs uppercase tracking-widest text-steel mb-2"
             >
-              Password
+              Confirm
             </label>
             <input
-              id="password"
-              name="password"
+              id="confirm"
+              name="confirm"
               type="password"
-              autoComplete="current-password"
+              autoComplete="new-password"
               required
+              minLength={8}
               className="w-full bg-slate800 border border-white/10 rounded-xl px-4 py-3 text-cream placeholder-steel focus:outline-none focus:border-lime focus:ring-2 focus:ring-lime/30 transition"
             />
           </div>
@@ -82,22 +82,9 @@ export default async function LoginPage({
             type="submit"
             className="w-full bg-lime text-obsidian font-bold py-3 rounded-xl hover:bg-lime-dark transition active:scale-[0.98]"
           >
-            Sign in
+            Save new password
           </button>
         </form>
-
-        <p className="text-center text-sm mt-5">
-          <Link
-            href="/forgot-password"
-            className="text-steel hover:text-cream transition"
-          >
-            Forgot password?
-          </Link>
-        </p>
-
-        <p className="text-center text-xs text-steel mt-8">
-          Private. Invite-only. Built for family and friends.
-        </p>
       </div>
     </main>
   );

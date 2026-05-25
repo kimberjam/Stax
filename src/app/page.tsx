@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { StaxLogo } from "@/components/stax-logo";
 import { getServerClient } from "@/lib/supabase/server";
@@ -45,6 +46,15 @@ export default async function Home() {
             Role: <span className="text-lime font-medium">{role}</span>
           </p>
 
+          {role === "admin" && (
+            <Link
+              href="/admin/invites"
+              className="block w-full text-center bg-violet/20 border border-violet/40 text-violet font-medium py-3 rounded-xl hover:bg-violet/30 transition mb-3"
+            >
+              Admin · Invites
+            </Link>
+          )}
+
           <form action="/auth/sign-out" method="post">
             <button
               type="submit"
@@ -61,8 +71,8 @@ export default async function Home() {
           </p>
           <h2 className="text-xl font-semibold mb-2">Onboarding next.</h2>
           <p className="text-sm text-cream/80 mb-5 leading-relaxed">
-            Sign-in, sign-out, and protected routes are working. Coming up:
-            password reset, invites, and the onboarding wizard.
+            Sign-in, sign-out, password reset, and invites are working. Coming
+            up: the onboarding wizard.
           </p>
 
           <ul className="space-y-2 text-sm">
@@ -72,11 +82,11 @@ export default async function Home() {
             </li>
             <li className="flex items-center justify-between">
               <span>Password reset</span>
-              <span className="text-amber">phase 1.2</span>
+              <span className="text-lime">ready</span>
             </li>
             <li className="flex items-center justify-between">
               <span>Invite system</span>
-              <span className="text-amber">phase 1.3</span>
+              <span className="text-lime">ready</span>
             </li>
             <li className="flex items-center justify-between">
               <span>Onboarding wizard</span>

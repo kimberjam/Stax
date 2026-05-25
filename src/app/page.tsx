@@ -15,12 +15,17 @@ export default async function Home() {
 
   const { data: appUser } = await supabase
     .from("app_users")
-    .select("display_name, email, role")
+    .select("display_name, email, role, onboarded_at")
     .eq("id", user.id)
     .single();
 
   const display = appUser?.display_name || appUser?.email || user.email;
   const role = appUser?.role ?? "user";
+
+  // First-time gate: send non-admins through onboarding until they finish.
+  if (role !== "admin" && !appUser?.onboarded_at) {
+    redirect("/onboarding");
+  }
 
   return (
     <main className="min-h-screen flex items-center justify-center px-6 py-16">
@@ -90,7 +95,7 @@ export default async function Home() {
             </li>
             <li className="flex items-center justify-between">
               <span>Onboarding wizard</span>
-              <span className="text-amber">phase 1.4</span>
+              <span className="text-lime">ready</span>
             </li>
           </ul>
         </section>

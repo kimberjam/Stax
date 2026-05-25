@@ -1,11 +1,9 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
 /**
- * Server-side Supabase client.
- * Reads/writes the auth cookie via Next's cookie store.
- * Use in Server Components, Server Actions, and Route Handlers.
- *
+ * Server-side Supabase client tied to the signed-in user's session.
  * Async because Next 15+ made cookies() async. Call sites must await it.
  */
 export async function getServerClient() {
@@ -38,13 +36,14 @@ export async function getServerClient() {
 }
 
 /**
- * Service-role client. NEVER ship to the browser.
- * Use for privileged server operations (sending invites, deleting users, etc.).
+ * Service-role admin client. NEVER ship to the browser.
+ * Bypasses RLS and exposes auth.admin.* methods (inviteUserByEmail, etc.).
+ * Only use in server actions after verifying the caller is allowed.
  */
 export function getServiceRoleClient() {
-  return createServerClient(
+  return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { cookies: { get: () => undefined, set: () => {}, remove: () => {} } },
+    { auth: { autoRefreshToken: false, persistSession: false } },
   );
 }

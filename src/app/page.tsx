@@ -51,6 +51,13 @@ export default async function Home() {
             Role: <span className="text-lime font-medium">{role}</span>
           </p>
 
+          <Link
+            href="/exercises"
+            className="block w-full text-center bg-lime/10 border border-lime/30 text-lime font-medium py-3 rounded-xl hover:bg-lime/20 transition mb-3"
+          >
+            Exercise library
+          </Link>
+
           {role === "admin" && (
             <Link
               href="/admin/invites"
@@ -95,6 +102,10 @@ export default async function Home() {
             </li>
             <li className="flex items-center justify-between">
               <span>Onboarding wizard</span>
+              <span className="text-lime">ready</span>
+            </li>
+            <li className="flex items-center justify-between">
+              <span>Exercise library</span>
               <span className="text-lime">ready</span>
             </li>
           </ul>

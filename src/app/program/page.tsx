@@ -4,6 +4,7 @@ import { getServerClient } from "@/lib/supabase/server";
 import { StaxLogo } from "@/components/stax-logo";
 import { muscleLabel } from "@/lib/exercises";
 import { GenerateButton } from "./generate-button";
+import { startWorkout } from "@/app/workout/actions";
 
 export const metadata = { title: "My program — Stax" };
 // AI generation can take several seconds; give the server action room.
@@ -81,6 +82,15 @@ export default async function ProgramPage({
 
   const program = res.data as unknown as ProgramRow | null;
 
+  const { data: inProgress } = await supabase
+    .from("workouts")
+    .select("id, label")
+    .eq("user_id", user.id)
+    .eq("status", "in_progress")
+    .order("started_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   return (
     <main className="min-h-screen px-5 py-8">
       <div className="w-full max-w-2xl mx-auto">
@@ -99,6 +109,15 @@ export default async function ProgramPage({
           <div className="mb-5 px-4 py-3 rounded-xl bg-coral/20 border border-coral/40 text-coral text-sm">
             {decodeURIComponent(error)}
           </div>
+        )}
+
+        {inProgress && (
+          <Link
+            href={`/workout/${inProgress.id}`}
+            className="block mb-5 px-4 py-3 rounded-xl bg-lime/10 border border-lime/30 text-lime text-sm font-medium hover:bg-lime/20 transition"
+          >
+            Resume your {inProgress.label} workout →
+          </Link>
         )}
 
         {!program ? (
@@ -220,6 +239,21 @@ function ProgramView({ program }: { program: ProgramRow }) {
                     </li>
                   ))}
                 </ul>
+              )}
+
+              {exs.length > 0 && (
+                <form
+                  action={startWorkout}
+                  className="px-5 py-3 border-t border-white/5"
+                >
+                  <input type="hidden" name="day_id" value={day.id} />
+                  <button
+                    type="submit"
+                    className="w-full bg-lime/10 border border-lime/30 text-lime font-medium py-2.5 rounded-xl hover:bg-lime/20 transition active:scale-[0.99]"
+                  >
+                    Start workout
+                  </button>
+                </form>
               )}
             </section>
           );

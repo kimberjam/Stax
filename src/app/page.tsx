@@ -65,6 +65,13 @@ export default async function Home() {
             Exercise library
           </Link>
 
+          <Link
+            href="/workouts"
+            className="block w-full text-center bg-obsidian border border-white/10 text-cream font-medium py-3 rounded-xl hover:bg-white/5 transition mb-3"
+          >
+            Workout history
+          </Link>
+
           {role === "admin" && (
             <Link
               href="/admin/invites"
@@ -117,6 +124,10 @@ export default async function Home() {
             </li>
             <li className="flex items-center justify-between">
               <span>AI program builder</span>
+              <span className="text-lime">ready</span>
+            </li>
+            <li className="flex items-center justify-between">
+              <span>Workout logging</span>
               <span className="text-lime">ready</span>
             </li>
           </ul>

@@ -52,6 +52,13 @@ export default async function Home() {
           </p>
 
           <Link
+            href="/program"
+            className="block w-full text-center bg-lime text-obsidian font-bold py-3 rounded-xl hover:bg-lime-dark transition mb-3"
+          >
+            My program
+          </Link>
+
+          <Link
             href="/exercises"
             className="block w-full text-center bg-lime/10 border border-lime/30 text-lime font-medium py-3 rounded-xl hover:bg-lime/20 transition mb-3"
           >
@@ -79,12 +86,12 @@ export default async function Home() {
 
         <section className="bg-slate800 border border-white/5 rounded-2xl p-6">
           <p className="uppercase text-[11px] tracking-widest text-steel mb-3">
-            Phase 1 — Auth wired
+            Status
           </p>
-          <h2 className="text-xl font-semibold mb-2">Onboarding next.</h2>
+          <h2 className="text-xl font-semibold mb-2">Ready to train.</h2>
           <p className="text-sm text-cream/80 mb-5 leading-relaxed">
-            Sign-in, sign-out, password reset, and invites are working. Coming
-            up: the onboarding wizard.
+            Your account, exercise library, and AI program builder are live.
+            Generate a program and start stacking.
           </p>
 
           <ul className="space-y-2 text-sm">
@@ -106,6 +113,10 @@ export default async function Home() {
             </li>
             <li className="flex items-center justify-between">
               <span>Exercise library</span>
+              <span className="text-lime">ready</span>
+            </li>
+            <li className="flex items-center justify-between">
+              <span>AI program builder</span>
               <span className="text-lime">ready</span>
             </li>
           </ul>

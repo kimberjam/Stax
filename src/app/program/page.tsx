@@ -95,7 +95,7 @@ export default async function ProgramPage({
           </Link>
         </div>
 
-        {error && (
+        {error && !program && (
           <div className="mb-5 px-4 py-3 rounded-xl bg-coral/20 border border-coral/40 text-coral text-sm">
             {decodeURIComponent(error)}
           </div>

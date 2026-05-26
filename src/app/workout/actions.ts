@@ -183,3 +183,55 @@ export async function saveWorkout(
 
   redirect(finish ? "/workouts" : "/program");
 }
+
+// Swap one exercise for another within this session only (does NOT touch the
+// program). Persists current edits first so nothing typed is lost.
+export async function swapExercise(
+  workoutId: string,
+  position: number,
+  newExerciseId: string,
+  sets: Array<z.infer<typeof setSchema>>,
+) {
+  const supabase = await getServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  // Make sure the replacement is an exercise this user can actually see.
+  const { data: ex } = await supabase
+    .from("exercises")
+    .select("id")
+    .eq("id", newExerciseId)
+    .maybeSingle();
+  if (!ex) redirect(`/workout/${workoutId}`);
+
+  // Persist current edits (RLS scopes writes to this user's own sets).
+  const parsed = z.array(setSchema).safeParse(sets);
+  if (parsed.success) {
+    await Promise.all(
+      parsed.data.map((s) =>
+        supabase
+          .from("workout_sets")
+          .update({ weight: s.weight, reps: s.reps, done: s.done })
+          .eq("id", s.id),
+      ),
+    );
+  }
+
+  // Replace the exercise for every set at this position; reset the logged
+  // values since it's a different movement.
+  await supabase
+    .from("workout_sets")
+    .update({
+      exercise_id: newExerciseId,
+      program_exercise_id: null,
+      weight: null,
+      reps: null,
+      done: false,
+    })
+    .eq("workout_id", workoutId)
+    .eq("position", position);
+
+  redirect(`/workout/${workoutId}`);
+}

@@ -8,6 +8,7 @@ type SetRow = {
   id: string;
   position: number;
   set_index: number;
+  exercise_id: string;
   target_rep_low: number | null;
   target_rep_high: number | null;
   target_rir: number | null;
@@ -40,7 +41,7 @@ export default async function WorkoutPage({
   const res = await supabase
     .from("workouts")
     .select(
-      "id, user_id, label, status, unit, workout_sets(id, position, set_index, target_rep_low, target_rep_high, target_rir, weight, reps, done, exercises(name, primary_muscle, cue))",
+      "id, user_id, label, status, unit, workout_sets(id, position, set_index, exercise_id, target_rep_low, target_rep_high, target_rir, weight, reps, done, exercises(name, primary_muscle, cue))",
     )
     .eq("id", id)
     .single();
@@ -54,6 +55,24 @@ export default async function WorkoutPage({
     redirect("/workouts");
   }
 
+  // Candidate exercises for swapping — the user's available library.
+  const [equipRes, exRes] = await Promise.all([
+    supabase.from("user_equipment").select("category").eq("user_id", user.id),
+    supabase
+      .from("exercises")
+      .select("id, name, primary_muscle, equipment, mechanic")
+      .order("name"),
+  ]);
+  const owned = new Set((equipRes.data ?? []).map((e) => e.category as string));
+  const candidates = (exRes.data ?? [])
+    .filter((e) => ((e.equipment as string[]) ?? []).every((t) => owned.has(t)))
+    .map((e) => ({
+      id: e.id as string,
+      name: e.name as string,
+      primary_muscle: e.primary_muscle as string,
+      mechanic: e.mechanic as string,
+    }));
+
   // Group sets by exercise (one position per exercise within the day).
   const byPos = new Map<number, SessionExercise>();
   for (const s of workout.workout_sets ?? []) {
@@ -61,6 +80,7 @@ export default async function WorkoutPage({
     if (!g) {
       g = {
         position: s.position,
+        exerciseId: s.exercise_id,
         name: s.exercises?.name ?? "Exercise",
         primaryMuscle: s.exercises?.primary_muscle ?? "",
         cue: s.exercises?.cue ?? null,
@@ -90,6 +110,7 @@ export default async function WorkoutPage({
       label={workout.label}
       unit={workout.unit === "metric" ? "kg" : "lb"}
       exercises={exercises}
+      candidates={candidates}
     />
   );
 }

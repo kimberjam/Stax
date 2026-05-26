@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { StaxLogo } from "@/components/stax-logo";
 import { cn } from "@/lib/utils";
 import { muscleLabel } from "@/lib/exercises";
-import { saveWorkout } from "../actions";
+import { saveWorkout, swapExercise } from "../actions";
 
 export type SessionSet = {
   id: string;
@@ -18,10 +18,17 @@ export type SessionSet = {
 };
 export type SessionExercise = {
   position: number;
+  exerciseId: string;
   name: string;
   primaryMuscle: string;
   cue: string | null;
   sets: SessionSet[];
+};
+export type SwapCandidate = {
+  id: string;
+  name: string;
+  primary_muscle: string;
+  mechanic: string;
 };
 
 type Editable = { weight: string; reps: string; done: boolean };
@@ -34,13 +41,18 @@ export function WorkoutSession({
   label,
   unit,
   exercises,
+  candidates,
 }: {
   workoutId: string;
   label: string;
   unit: string;
   exercises: SessionExercise[];
+  candidates: SwapCandidate[];
 }) {
   const [pending, start] = useTransition();
+  const [swapPos, setSwapPos] = useState<number | null>(null);
+  const [swapSearch, setSwapSearch] = useState("");
+  const [swapAll, setSwapAll] = useState(false);
   const [vals, setVals] = useState<Record<string, Editable>>(() => {
     const init: Record<string, Editable> = {};
     for (const ex of exercises) {
@@ -62,8 +74,8 @@ export function WorkoutSession({
     setVals((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
   }
 
-  function submit(finish: boolean) {
-    const payload = Object.entries(vals).map(([id, v]) => {
+  function buildPayload() {
+    return Object.entries(vals).map(([id, v]) => {
       const weight = v.weight.trim() === "" ? null : Number(v.weight);
       const reps = v.reps.trim() === "" ? null : parseInt(v.reps, 10);
       return {
@@ -73,10 +85,35 @@ export function WorkoutSession({
         done: v.done,
       };
     });
+  }
+
+  function submit(finish: boolean) {
+    const payload = buildPayload();
     start(async () => {
       await saveWorkout(workoutId, payload, finish);
     });
   }
+
+  function doSwap(candidateId: string) {
+    if (swapPos == null) return;
+    const pos = swapPos;
+    const payload = buildPayload();
+    setSwapPos(null);
+    start(async () => {
+      await swapExercise(workoutId, pos, candidateId, payload);
+    });
+  }
+
+  const swapGroup =
+    swapPos !== null ? exercises.find((e) => e.position === swapPos) : null;
+  const swapMuscle = swapGroup?.primaryMuscle ?? "";
+  const swapList = candidates.filter((c) => {
+    if (c.id === swapGroup?.exerciseId) return false;
+    if (!swapAll && c.primary_muscle !== swapMuscle) return false;
+    const q = swapSearch.trim().toLowerCase();
+    if (q && !c.name.toLowerCase().includes(q)) return false;
+    return true;
+  });
 
   return (
     <main className="min-h-screen px-5 py-8 pb-32">
@@ -102,11 +139,24 @@ export function WorkoutSession({
               key={ex.position}
               className="bg-slate800 border border-white/5 rounded-2xl overflow-hidden"
             >
-              <div className="px-4 pt-3 pb-2 border-b border-white/5">
-                <h2 className="font-semibold text-cream">{ex.name}</h2>
-                <p className="text-xs text-steel mt-0.5">
-                  {muscleLabel(ex.primaryMuscle)}
-                </p>
+              <div className="px-4 pt-3 pb-2 border-b border-white/5 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h2 className="font-semibold text-cream truncate">{ex.name}</h2>
+                  <p className="text-xs text-steel mt-0.5">
+                    {muscleLabel(ex.primaryMuscle)}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSwapPos(ex.position);
+                    setSwapSearch("");
+                    setSwapAll(false);
+                  }}
+                  className="shrink-0 text-xs text-violet border border-violet/40 rounded-full px-3 py-1 hover:bg-violet/10 transition"
+                >
+                  Swap
+                </button>
               </div>
 
               {/* column labels */}
@@ -204,6 +254,71 @@ export function WorkoutSession({
           </button>
         </div>
       </div>
+
+      {/* Swap picker overlay */}
+      {swapPos !== null && (
+        <div className="fixed inset-0 z-50 bg-obsidian/95 backdrop-blur flex flex-col">
+          <div className="w-full max-w-xl mx-auto flex flex-col flex-1 min-h-0 p-5">
+            <div className="flex items-center justify-between mb-1">
+              <h2 className="text-lg font-bold tracking-wide">Swap exercise</h2>
+              <button
+                type="button"
+                onClick={() => setSwapPos(null)}
+                className="text-sm text-steel hover:text-cream transition"
+              >
+                Cancel
+              </button>
+            </div>
+            <p className="text-xs text-steel mb-4">
+              Replaces it for this workout only — your program stays the same.
+            </p>
+
+            <input
+              type="search"
+              value={swapSearch}
+              onChange={(e) => setSwapSearch(e.target.value)}
+              placeholder="Search exercises…"
+              className="w-full bg-slate800 border border-white/10 rounded-xl px-4 py-3 text-cream placeholder-steel focus:outline-none focus:border-lime focus:ring-2 focus:ring-lime/30 transition mb-3"
+            />
+
+            <button
+              type="button"
+              onClick={() => setSwapAll((v) => !v)}
+              className={cn(
+                "self-start rounded-full px-4 py-1.5 text-sm font-medium border transition mb-4",
+                swapAll
+                  ? "border-white/15 bg-slate800 text-cream"
+                  : "border-lime bg-lime text-obsidian",
+              )}
+            >
+              {swapAll ? "Showing all muscles" : `${muscleLabel(swapMuscle)} only`}
+            </button>
+
+            <div className="flex-1 overflow-y-auto space-y-2 pb-4">
+              {swapList.length === 0 ? (
+                <p className="text-sm text-steel text-center py-8">
+                  Nothing matches. Try “Showing all muscles” or a different search.
+                </p>
+              ) : (
+                swapList.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    disabled={pending}
+                    onClick={() => doSwap(c.id)}
+                    className="w-full text-left rounded-xl border border-white/10 bg-slate800 px-4 py-3 hover:border-white/25 transition active:scale-[0.99] disabled:opacity-50"
+                  >
+                    <span className="font-medium text-cream">{c.name}</span>
+                    <span className="block text-xs text-steel mt-0.5">
+                      {muscleLabel(c.primary_muscle)} · {c.mechanic}
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

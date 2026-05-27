@@ -199,15 +199,28 @@ function ProgramView({ program }: { program: ProgramRow }) {
               key={day.id}
               className="bg-slate800 border border-white/5 rounded-2xl overflow-hidden"
             >
-              <div className="px-5 pt-4 pb-3 border-b border-white/5">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-[11px] uppercase tracking-widest text-steel">
-                    Day {day.day_index}
-                  </span>
-                  <h3 className="text-lg font-semibold text-cream">{day.label}</h3>
+              <div className="px-5 pt-4 pb-3 border-b border-white/5 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-[11px] uppercase tracking-widest text-steel">
+                      Day {day.day_index}
+                    </span>
+                    <h3 className="text-lg font-semibold text-cream">{day.label}</h3>
+                  </div>
+                  {day.focus && (
+                    <p className="text-xs text-steel mt-0.5">{day.focus}</p>
+                  )}
                 </div>
-                {day.focus && (
-                  <p className="text-xs text-steel mt-0.5">{day.focus}</p>
+                {exs.length > 0 && (
+                  <form action={startWorkout} className="shrink-0">
+                    <input type="hidden" name="day_id" value={day.id} />
+                    <button
+                      type="submit"
+                      className="rounded-full bg-lime text-obsidian font-semibold text-sm px-4 py-2 hover:bg-lime-dark transition active:scale-[0.97]"
+                    >
+                      Start workout
+                    </button>
+                  </form>
                 )}
               </div>
 
@@ -246,21 +259,6 @@ function ProgramView({ program }: { program: ProgramRow }) {
                     </li>
                   ))}
                 </ul>
-              )}
-
-              {exs.length > 0 && (
-                <form
-                  action={startWorkout}
-                  className="px-5 py-3 border-t border-white/5"
-                >
-                  <input type="hidden" name="day_id" value={day.id} />
-                  <button
-                    type="submit"
-                    className="w-full bg-lime/10 border border-lime/30 text-lime font-medium py-2.5 rounded-xl hover:bg-lime/20 transition active:scale-[0.99]"
-                  >
-                    Start workout
-                  </button>
-                </form>
               )}
             </section>
           );

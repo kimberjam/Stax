@@ -179,31 +179,33 @@ export function WorkoutSession({
           {doneCount} of {totalSets} sets done
         </p>
 
-        {/* Session timer */}
-        <div className="flex items-center gap-3 mb-6 bg-slate800 border border-white/5 rounded-xl px-4 py-2.5">
-          <span className="text-2xl font-bold tabular-nums tracking-wide text-cream">
-            {fmtTime(elapsed)}
-          </span>
-          <div className="ml-auto flex gap-2">
-            <button
-              type="button"
-              onClick={() => setRunning((r) => !r)}
-              className={cn(
-                "rounded-lg px-4 py-2 text-sm font-semibold transition active:scale-[0.97]",
-                running
-                  ? "bg-amber/20 border border-amber/40 text-amber"
-                  : "bg-lime text-obsidian",
-              )}
-            >
-              {running ? "Pause" : "Start"}
-            </button>
-            <button
-              type="button"
-              onClick={resetTimer}
-              className="rounded-lg px-4 py-2 text-sm font-medium border border-white/15 text-cream hover:bg-white/5 transition active:scale-[0.97]"
-            >
-              Reset
-            </button>
+        {/* Session timer — sticky so it stays visible while scrolling */}
+        <div className="sticky top-0 z-20 -mx-5 px-5 py-2 mb-6 bg-obsidian/95 backdrop-blur">
+          <div className="flex items-center gap-3 bg-slate800 border border-white/10 rounded-xl px-4 py-2.5">
+            <span className="text-2xl font-bold tabular-nums tracking-wide text-cream">
+              {fmtTime(elapsed)}
+            </span>
+            <div className="ml-auto flex gap-2">
+              <button
+                type="button"
+                onClick={() => setRunning((r) => !r)}
+                className={cn(
+                  "rounded-lg px-4 py-2 text-sm font-semibold transition active:scale-[0.97]",
+                  running
+                    ? "bg-amber/20 border border-amber/40 text-amber"
+                    : "bg-lime text-obsidian",
+                )}
+              >
+                {running ? "Pause" : "Start"}
+              </button>
+              <button
+                type="button"
+                onClick={resetTimer}
+                className="rounded-lg px-4 py-2 text-sm font-medium border border-white/15 text-cream hover:bg-white/5 transition active:scale-[0.97]"
+              >
+                Reset
+              </button>
+            </div>
           </div>
         </div>
 

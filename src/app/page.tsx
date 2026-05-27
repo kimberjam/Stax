@@ -55,7 +55,7 @@ export default async function Home() {
             href="/program"
             className="block w-full text-center bg-lime text-obsidian font-bold py-3 rounded-xl hover:bg-lime-dark transition mb-3"
           >
-            My program
+            Start Workout
           </Link>
 
           <Link

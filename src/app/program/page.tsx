@@ -175,10 +175,17 @@ function ProgramView({ program }: { program: ProgramRow }) {
             {program.generated_by === "ai" ? "AI" : "Template"}
           </span>
         </div>
-        <p className="text-xs text-steel mt-3">
-          Week {program.current_week} of {program.deload_interval} · week{" "}
-          {program.deload_interval} is a lighter recovery week.
-        </p>
+        {program.current_week >= program.deload_interval ? (
+          <p className="text-xs text-amber mt-3">
+            Recovery week (week {program.current_week}) — your sessions are
+            lighter on purpose this week.
+          </p>
+        ) : (
+          <p className="text-xs text-steel mt-3">
+            Week {program.current_week} of {program.deload_interval} · week{" "}
+            {program.deload_interval} is a lighter recovery week.
+          </p>
+        )}
       </section>
 
       {/* Days */}

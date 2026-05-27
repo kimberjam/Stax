@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { StaxLogo } from "@/components/stax-logo";
 import { cn } from "@/lib/utils";
 import { muscleLabel } from "@/lib/exercises";
@@ -22,6 +22,7 @@ export type SessionExercise = {
   name: string;
   primaryMuscle: string;
   cue: string | null;
+  note: string | null;
   sets: SessionSet[];
 };
 export type SwapCandidate = {
@@ -36,23 +37,69 @@ type Editable = { weight: string; reps: string; done: boolean };
 const numInput =
   "w-full bg-obsidian border border-white/10 rounded-lg px-3 py-2 text-cream text-center placeholder-steel focus:outline-none focus:border-lime focus:ring-2 focus:ring-lime/30 transition";
 
+function fmtTime(total: number) {
+  const s = Math.floor(total);
+  const sec = s % 60;
+  const m = Math.floor(s / 60);
+  const h = Math.floor(m / 60);
+  if (h > 0) {
+    return `${h}:${String(m % 60).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+  }
+  return `${m}:${String(sec).padStart(2, "0")}`;
+}
+
 export function WorkoutSession({
   workoutId,
   label,
   unit,
   exercises,
   candidates,
+  deload = false,
 }: {
   workoutId: string;
   label: string;
   unit: string;
   exercises: SessionExercise[];
   candidates: SwapCandidate[];
+  deload?: boolean;
 }) {
   const [pending, start] = useTransition();
   const [swapPos, setSwapPos] = useState<number | null>(null);
   const [swapSearch, setSwapSearch] = useState("");
   const [swapAll, setSwapAll] = useState(false);
+
+  // Session stopwatch — in-memory, timestamp-based so it stays accurate even
+  // if the tab is backgrounded.
+  const [running, setRunning] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const startedAtRef = useRef<number | null>(null);
+  const accRef = useRef(0);
+  useEffect(() => {
+    if (!running) return;
+    startedAtRef.current = Date.now();
+    const tick = () => {
+      const since = startedAtRef.current
+        ? (Date.now() - startedAtRef.current) / 1000
+        : 0;
+      setElapsed(accRef.current + since);
+    };
+    tick();
+    const t = setInterval(tick, 250);
+    return () => {
+      if (startedAtRef.current) {
+        accRef.current += (Date.now() - startedAtRef.current) / 1000;
+        startedAtRef.current = null;
+      }
+      clearInterval(t);
+    };
+  }, [running]);
+  function resetTimer() {
+    startedAtRef.current = null;
+    accRef.current = 0;
+    setElapsed(0);
+    setRunning(false);
+  }
+
   const [vals, setVals] = useState<Record<string, Editable>>(() => {
     const init: Record<string, Editable> = {};
     for (const ex of exercises) {
@@ -128,9 +175,44 @@ export function WorkoutSession({
             <h1 className="text-lg font-bold tracking-wide">{label}</h1>
           </div>
         </div>
-        <p className="text-xs text-steel mb-6">
+        <p className="text-xs text-steel mb-4">
           {doneCount} of {totalSets} sets done
         </p>
+
+        {/* Session timer */}
+        <div className="flex items-center gap-3 mb-6 bg-slate800 border border-white/5 rounded-xl px-4 py-2.5">
+          <span className="text-2xl font-bold tabular-nums tracking-wide text-cream">
+            {fmtTime(elapsed)}
+          </span>
+          <div className="ml-auto flex gap-2">
+            <button
+              type="button"
+              onClick={() => setRunning((r) => !r)}
+              className={cn(
+                "rounded-lg px-4 py-2 text-sm font-semibold transition active:scale-[0.97]",
+                running
+                  ? "bg-amber/20 border border-amber/40 text-amber"
+                  : "bg-lime text-obsidian",
+              )}
+            >
+              {running ? "Pause" : "Start"}
+            </button>
+            <button
+              type="button"
+              onClick={resetTimer}
+              className="rounded-lg px-4 py-2 text-sm font-medium border border-white/15 text-cream hover:bg-white/5 transition active:scale-[0.97]"
+            >
+              Reset
+            </button>
+          </div>
+        </div>
+
+        {deload && (
+          <div className="mb-5 px-4 py-3 rounded-xl bg-amber/15 border border-amber/40 text-amber text-sm">
+            Recovery week — fewer sets and lighter loads on purpose. Take it
+            easy and let your body rebound.
+          </div>
+        )}
 
         {/* Exercises */}
         <div className="space-y-4">
@@ -145,6 +227,9 @@ export function WorkoutSession({
                   <p className="text-xs text-steel mt-0.5">
                     {muscleLabel(ex.primaryMuscle)}
                   </p>
+                  {!deload && ex.note && (
+                    <p className="text-[11px] text-lime mt-1">{ex.note}</p>
+                  )}
                 </div>
                 <button
                   type="button"

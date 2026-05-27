@@ -15,6 +15,7 @@ type SetRow = {
   weight: number | null;
   reps: number | null;
   done: boolean;
+  notes: string | null;
   exercises: { name: string; primary_muscle: string; cue: string | null } | null;
 };
 type WorkoutRow = {
@@ -23,6 +24,8 @@ type WorkoutRow = {
   label: string;
   status: string;
   unit: string;
+  program_week: number | null;
+  programs: { deload_interval: number } | null;
   workout_sets: SetRow[];
 };
 
@@ -41,7 +44,7 @@ export default async function WorkoutPage({
   const res = await supabase
     .from("workouts")
     .select(
-      "id, user_id, label, status, unit, workout_sets(id, position, set_index, exercise_id, target_rep_low, target_rep_high, target_rir, weight, reps, done, exercises(name, primary_muscle, cue))",
+      "id, user_id, label, status, unit, program_week, programs(deload_interval), workout_sets(id, position, set_index, exercise_id, notes, target_rep_low, target_rep_high, target_rir, weight, reps, done, exercises(name, primary_muscle, cue))",
     )
     .eq("id", id)
     .single();
@@ -84,6 +87,7 @@ export default async function WorkoutPage({
         name: s.exercises?.name ?? "Exercise",
         primaryMuscle: s.exercises?.primary_muscle ?? "",
         cue: s.exercises?.cue ?? null,
+        note: s.notes ?? null,
         sets: [],
       };
       byPos.set(s.position, g);
@@ -104,6 +108,12 @@ export default async function WorkoutPage({
   );
   for (const ex of exercises) ex.sets.sort((a, b) => a.setIndex - b.setIndex);
 
+  const deloadInterval = workout.programs?.deload_interval ?? null;
+  const isDeload =
+    workout.program_week != null &&
+    deloadInterval != null &&
+    workout.program_week >= deloadInterval;
+
   return (
     <WorkoutSession
       workoutId={workout.id}
@@ -111,6 +121,7 @@ export default async function WorkoutPage({
       unit={workout.unit === "metric" ? "kg" : "lb"}
       exercises={exercises}
       candidates={candidates}
+      deload={isDeload}
     />
   );
 }

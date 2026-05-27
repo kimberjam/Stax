@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { getServerClient } from "@/lib/supabase/server";
+import { StaxLogo } from "@/components/stax-logo";
 import { WorkoutSession, type SessionExercise } from "./session";
 
 export const metadata = { title: "Workout — Stax" };
@@ -9,25 +11,36 @@ type SetRow = {
   position: number;
   set_index: number;
   exercise_id: string;
+  notes: string | null;
   target_rep_low: number | null;
   target_rep_high: number | null;
   target_rir: number | null;
   weight: number | null;
   reps: number | null;
   done: boolean;
-  notes: string | null;
   exercises: { name: string; primary_muscle: string; cue: string | null } | null;
 };
-type WorkoutRow = {
-  id: string;
-  user_id: string;
-  label: string;
-  status: string;
-  unit: string;
-  program_week: number | null;
-  programs: { deload_interval: number } | null;
-  workout_sets: SetRow[];
-};
+
+function LoadError({ message }: { message: string }) {
+  return (
+    <main className="min-h-screen px-5 py-8">
+      <div className="w-full max-w-xl mx-auto">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <StaxLogo size={36} />
+            <h1 className="text-lg font-bold tracking-wide">Workout</h1>
+          </div>
+          <Link href="/program" className="text-sm text-steel hover:text-cream transition">
+            Back
+          </Link>
+        </div>
+        <div className="px-4 py-3 rounded-xl bg-coral/20 border border-coral/40 text-coral text-sm">
+          Couldn&rsquo;t load this workout: {message}
+        </div>
+      </div>
+    </main>
+  );
+}
 
 export default async function WorkoutPage({
   params,
@@ -41,22 +54,26 @@ export default async function WorkoutPage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const res = await supabase
+  // Core workout row — simple columns only, no embeds.
+  const { data: workout, error: wErr } = await supabase
     .from("workouts")
-    .select(
-      "id, user_id, label, status, unit, program_week, programs(deload_interval), workout_sets(id, position, set_index, exercise_id, notes, target_rep_low, target_rep_high, target_rir, weight, reps, done, exercises(name, primary_muscle, cue))",
-    )
+    .select("id, user_id, label, status, unit, program_id, program_week")
     .eq("id", id)
-    .single();
+    .maybeSingle();
 
-  const workout = res.data as unknown as WorkoutRow | null;
+  if (wErr) return <LoadError message={wErr.message} />;
+  if (!workout) redirect("/program");
+  if ((workout.user_id as string) !== user.id) redirect("/program");
+  if (workout.status === "completed") redirect("/workouts");
 
-  if (!workout || workout.user_id !== user.id) {
-    redirect("/program");
-  }
-  if (workout.status === "completed") {
-    redirect("/workouts");
-  }
+  // Sets for this workout (with each set's exercise).
+  const { data: setData, error: sErr } = await supabase
+    .from("workout_sets")
+    .select(
+      "id, position, set_index, exercise_id, notes, target_rep_low, target_rep_high, target_rir, weight, reps, done, exercises(name, primary_muscle, cue)",
+    )
+    .eq("workout_id", id);
+  if (sErr) return <LoadError message={sErr.message} />;
 
   // Candidate exercises for swapping — the user's available library.
   const [equipRes, exRes] = await Promise.all([
@@ -76,9 +93,21 @@ export default async function WorkoutPage({
       mechanic: e.mechanic as string,
     }));
 
+  // Deload interval, looked up directly (no embed).
+  let deloadInterval: number | null = null;
+  if (workout.program_id) {
+    const { data: prog } = await supabase
+      .from("programs")
+      .select("deload_interval")
+      .eq("id", workout.program_id as string)
+      .maybeSingle();
+    deloadInterval = (prog?.deload_interval as number) ?? null;
+  }
+
   // Group sets by exercise (one position per exercise within the day).
+  const rows = (setData ?? []) as unknown as SetRow[];
   const byPos = new Map<number, SessionExercise>();
-  for (const s of workout.workout_sets ?? []) {
+  for (const s of rows) {
     let g = byPos.get(s.position);
     if (!g) {
       g = {
@@ -108,16 +137,13 @@ export default async function WorkoutPage({
   );
   for (const ex of exercises) ex.sets.sort((a, b) => a.setIndex - b.setIndex);
 
-  const deloadInterval = workout.programs?.deload_interval ?? null;
-  const isDeload =
-    workout.program_week != null &&
-    deloadInterval != null &&
-    workout.program_week >= deloadInterval;
+  const wk = workout.program_week as number | null;
+  const isDeload = wk != null && deloadInterval != null && wk >= deloadInterval;
 
   return (
     <WorkoutSession
-      workoutId={workout.id}
-      label={workout.label}
+      workoutId={workout.id as string}
+      label={workout.label as string}
       unit={workout.unit === "metric" ? "kg" : "lb"}
       exercises={exercises}
       candidates={candidates}

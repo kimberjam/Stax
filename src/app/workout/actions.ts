@@ -38,17 +38,18 @@ export async function startWorkout(formData: FormData) {
   const { data: day } = await supabase
     .from("program_days")
     .select(
-      "id, label, program_id, programs(user_id, current_week, deload_interval), program_exercises(id, position, sets, rep_low, rep_high, rir, exercise_id, exercises(primary_muscle))",
+      "id, label, program_id, program_exercises(id, position, sets, rep_low, rep_high, rir, exercise_id, exercises(primary_muscle))",
     )
     .eq("id", dayId)
-    .single();
+    .maybeSingle();
+  if (!day) redirect("/program");
 
-  const program = day?.programs as unknown as {
-    user_id: string;
-    current_week: number;
-    deload_interval: number;
-  } | null;
-  if (!day || !program || program.user_id !== user.id) {
+  const { data: program } = await supabase
+    .from("programs")
+    .select("user_id, current_week, deload_interval")
+    .eq("id", day.program_id as string)
+    .maybeSingle();
+  if (!program || (program.user_id as string) !== user.id) {
     redirect("/program");
   }
 

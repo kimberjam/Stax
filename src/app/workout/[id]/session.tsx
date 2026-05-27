@@ -106,7 +106,12 @@ export function WorkoutSession({
       for (const s of ex.sets) {
         init[s.id] = {
           weight: s.weight != null ? String(s.weight) : "",
-          reps: s.reps != null ? String(s.reps) : "",
+          reps:
+            s.reps != null
+              ? String(s.reps)
+              : s.targetRepLow != null
+                ? String(s.targetRepLow)
+                : "",
           done: s.done,
         };
       }

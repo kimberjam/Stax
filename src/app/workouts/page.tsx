@@ -84,15 +84,12 @@ export default async function WorkoutsPage() {
           <div className="space-y-2">
             {completed.map((w) => {
               const doneSets = w.workout_sets.filter((s) => s.done);
-              const volume = doneSets.reduce(
-                (n, s) => n + (Number(s.weight) || 0) * (s.reps || 0),
-                0,
-              );
-              const unit = w.unit === "metric" ? "kg" : "lb";
+              const reps = doneSets.reduce((n, s) => n + (s.reps || 0), 0);
               return (
-                <div
+                <Link
                   key={w.id}
-                  className="bg-slate800 border border-white/5 rounded-xl px-4 py-3 flex items-center justify-between gap-3"
+                  href={`/workouts/${w.id}`}
+                  className="bg-slate800 border border-white/5 rounded-xl px-4 py-3 flex items-center justify-between gap-3 hover:border-white/20 transition"
                 >
                   <div>
                     <p className="font-semibold text-cream">{w.label}</p>
@@ -104,13 +101,11 @@ export default async function WorkoutsPage() {
                     <p className="text-sm font-semibold text-lime">
                       {doneSets.length} sets
                     </p>
-                    {volume > 0 && (
-                      <p className="text-[11px] text-steel">
-                        {Math.round(volume).toLocaleString()} {unit} volume
-                      </p>
+                    {reps > 0 && (
+                      <p className="text-[11px] text-steel">{reps} reps</p>
                     )}
                   </div>
-                </div>
+                </Link>
               );
             })}
           </div>

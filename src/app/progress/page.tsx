@@ -27,6 +27,15 @@ function Stat({ label, value }: { label: string; value: string | number }) {
   );
 }
 
+type Agg = {
+  name: string;
+  maxReps: number;
+  bestWeight: number;
+  bestRepsAtWeight: number;
+  e1rm: number;
+  hasWeight: boolean;
+};
+
 export default async function ProgressPage() {
   const supabase = await getServerClient();
   const {
@@ -75,20 +84,17 @@ export default async function ProgressPage() {
   // --- Stats ---
   const totalWorkouts = workouts.length;
   const totalSets = sets.length;
-  let totalVolume = 0;
-  const volByWorkout = new Map<string, number>();
-  for (const s of sets) {
-    if (s.weight == null || s.reps == null) continue;
-    const v = Number(s.weight) * Number(s.reps);
-    totalVolume += v;
-    volByWorkout.set(s.workout_id, (volByWorkout.get(s.workout_id) ?? 0) + v);
-  }
+  let totalReps = 0;
+  for (const s of sets) if (s.reps != null) totalReps += Number(s.reps);
   const now = Date.now();
   const thisWeek = workouts.filter(
     (w) => w.completed_at && now - new Date(w.completed_at).getTime() < WEEK_MS,
   ).length;
 
-  // --- Weekly volume buckets (index 0 = oldest, WEEKS-1 = this week) ---
+  // --- Weekly sets buckets (index 0 = oldest, WEEKS-1 = this week) ---
+  const setsByWorkout = new Map<string, number>();
+  for (const s of sets)
+    setsByWorkout.set(s.workout_id, (setsByWorkout.get(s.workout_id) ?? 0) + 1);
   const buckets = new Array(WEEKS).fill(0) as number[];
   for (const w of workouts) {
     if (!w.completed_at) continue;
@@ -96,35 +102,47 @@ export default async function ProgressPage() {
       (now - new Date(w.completed_at).getTime()) / WEEK_MS,
     );
     if (weeksAgo < 0 || weeksAgo >= WEEKS) continue;
-    buckets[WEEKS - 1 - weeksAgo] += volByWorkout.get(w.id) ?? 0;
+    buckets[WEEKS - 1 - weeksAgo] += setsByWorkout.get(w.id) ?? 0;
   }
   const maxBucket = Math.max(1, ...buckets);
-  const hasVolume = totalVolume > 0;
+  const hasSets = totalSets > 0;
 
-  // --- Personal records ---
-  type PR = { name: string; bestWeight: number; bestReps: number; e1rm: number };
-  const prMap = new Map<string, PR>();
+  // --- Personal records (weighted: best weight + est 1RM; bodyweight: best reps) ---
+  const agg = new Map<string, Agg>();
   for (const s of sets) {
-    if (s.weight == null || s.reps == null) continue;
-    const w = Number(s.weight);
+    if (s.reps == null) continue;
     const r = Number(s.reps);
-    if (w <= 0) continue;
-    const e = w * (1 + r / 30);
+    const w = s.weight != null ? Number(s.weight) : 0;
     const name = nameMap.get(s.exercise_id) ?? "Exercise";
-    const cur = prMap.get(s.exercise_id);
-    if (!cur) {
-      prMap.set(s.exercise_id, { name, bestWeight: w, bestReps: r, e1rm: e });
-    } else {
-      if (w > cur.bestWeight || (w === cur.bestWeight && r > cur.bestReps)) {
-        cur.bestWeight = w;
-        cur.bestReps = r;
+    let a = agg.get(s.exercise_id);
+    if (!a) {
+      a = {
+        name,
+        maxReps: 0,
+        bestWeight: 0,
+        bestRepsAtWeight: 0,
+        e1rm: 0,
+        hasWeight: false,
+      };
+      agg.set(s.exercise_id, a);
+    }
+    if (r > a.maxReps) a.maxReps = r;
+    if (w > 0) {
+      a.hasWeight = true;
+      const e = w * (1 + r / 30);
+      if (w > a.bestWeight || (w === a.bestWeight && r > a.bestRepsAtWeight)) {
+        a.bestWeight = w;
+        a.bestRepsAtWeight = r;
       }
-      if (e > cur.e1rm) cur.e1rm = e;
+      if (e > a.e1rm) a.e1rm = e;
     }
   }
-  const prs = Array.from(prMap.values())
-    .sort((a, b) => b.e1rm - a.e1rm)
-    .slice(0, 12);
+  const all = Array.from(agg.values());
+  const weighted = all.filter((a) => a.hasWeight).sort((x, y) => y.e1rm - x.e1rm);
+  const bodyweight = all
+    .filter((a) => !a.hasWeight)
+    .sort((x, y) => y.maxReps - x.maxReps);
+  const prs = [...weighted, ...bodyweight].slice(0, 14);
 
   return (
     <main className="min-h-screen px-5 py-8">
@@ -143,7 +161,7 @@ export default async function ProgressPage() {
           <section className="bg-slate800 border border-white/5 rounded-2xl p-6 text-center">
             <h2 className="text-xl font-semibold mb-2">Nothing to show yet</h2>
             <p className="text-sm text-cream/80 leading-relaxed mb-6">
-              Finish a workout and your stats, volume trend, and personal records
+              Finish a workout and your stats, weekly sets, and personal records
               will appear here.
             </p>
             <Link
@@ -160,18 +178,15 @@ export default async function ProgressPage() {
               <Stat label="Workouts" value={totalWorkouts} />
               <Stat label="This week" value={thisWeek} />
               <Stat label="Sets logged" value={totalSets} />
-              <Stat
-                label={`Volume (${unit})`}
-                value={Math.round(totalVolume).toLocaleString()}
-              />
+              <Stat label="Total reps" value={totalReps.toLocaleString()} />
             </div>
 
-            {/* Weekly volume */}
+            {/* Weekly sets */}
             <section className="bg-slate800 border border-white/5 rounded-2xl p-5 mb-6">
               <h2 className="text-sm font-semibold text-cream mb-4">
-                Weekly volume
+                Weekly sets
               </h2>
-              {hasVolume ? (
+              {hasSets ? (
                 <>
                   <div className="flex items-end gap-1.5 h-40">
                     {buckets.map((v, i) => {
@@ -180,11 +195,11 @@ export default async function ProgressPage() {
                         <div
                           key={i}
                           className="flex-1 flex flex-col justify-end h-full"
-                          title={`${Math.round(v).toLocaleString()} ${unit}`}
+                          title={`${v} set${v === 1 ? "" : "s"}`}
                         >
                           <div
                             className="w-full rounded-t bg-lime"
-                            style={{ height: `${v > 0 ? Math.max(pct, 3) : 0}%` }}
+                            style={{ height: `${v > 0 ? Math.max(pct, 4) : 0}%` }}
                           />
                         </div>
                       );
@@ -197,8 +212,7 @@ export default async function ProgressPage() {
                 </>
               ) : (
                 <p className="text-sm text-steel">
-                  Log the weight on your sets and your training volume will chart
-                  here.
+                  Finish a session and your weekly training sets will chart here.
                 </p>
               )}
             </section>
@@ -210,8 +224,8 @@ export default async function ProgressPage() {
               </h2>
               {prs.length === 0 ? (
                 <p className="text-sm text-steel">
-                  Once you log weight × reps on a lift, your best sets and
-                  estimated 1-rep-max show up here.
+                  Log your reps (and weight, when you use it) and your best sets
+                  show up here.
                 </p>
               ) : (
                 <div className="space-y-2">
@@ -225,14 +239,27 @@ export default async function ProgressPage() {
                           {pr.name}
                         </p>
                         <p className="text-xs text-steel mt-0.5">
-                          best {pr.bestWeight} × {pr.bestReps} {unit}
+                          {pr.hasWeight
+                            ? `best ${pr.bestWeight} × ${pr.bestRepsAtWeight} ${unit}`
+                            : "best set"}
                         </p>
                       </div>
                       <div className="text-right shrink-0">
-                        <p className="text-sm font-semibold text-lime">
-                          {Math.round(pr.e1rm).toLocaleString()} {unit}
-                        </p>
-                        <p className="text-[11px] text-steel">est. 1RM</p>
+                        {pr.hasWeight ? (
+                          <>
+                            <p className="text-sm font-semibold text-lime">
+                              {Math.round(pr.e1rm).toLocaleString()} {unit}
+                            </p>
+                            <p className="text-[11px] text-steel">est. 1RM</p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-sm font-semibold text-lime">
+                              {pr.maxReps} reps
+                            </p>
+                            <p className="text-[11px] text-steel">bodyweight</p>
+                          </>
+                        )}
                       </div>
                     </div>
                   ))}

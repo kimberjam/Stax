@@ -145,5 +145,6 @@ export async function generateProgram() {
     }
   }
 
-  redirect("/program");
+  // Tell the user when the AI step didn't run and the template was used.
+  redirect(plan.fallback_reason ? "/program?notice=template-fallback" : "/program");
 }

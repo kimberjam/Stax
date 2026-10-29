@@ -59,9 +59,9 @@ const primaryBtn =
 export default async function ProgramPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; notice?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, notice } = await searchParams;
 
   const supabase = await getServerClient();
   const {
@@ -108,6 +108,13 @@ export default async function ProgramPage({
         {error && !program && (
           <div className="mb-5 px-4 py-3 rounded-xl bg-coral/20 border border-coral/40 text-coral text-sm">
             {decodeURIComponent(error)}
+          </div>
+        )}
+
+        {notice === "template-fallback" && program && (
+          <div className="mb-5 px-4 py-3 rounded-xl bg-amber/10 border border-amber/30 text-amber text-sm">
+            AI coaching wasn&apos;t available just now, so Stax built a standard
+            template program for you. You can regenerate it later to try AI again.
           </div>
         )}
 

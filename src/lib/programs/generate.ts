@@ -38,6 +38,8 @@ export type GeneratedDay = {
 export type GeneratedPlan = {
   split_name: string;
   generated_by: "ai" | "template";
+  /** Set when AI was attempted (or unavailable) and the template was used instead. */
+  fallback_reason?: string;
   days: GeneratedDay[];
 };
 
@@ -144,13 +146,20 @@ function extractJson(text: string): unknown | null {
   }
 }
 
+type AiOutcome =
+  | { plan: GeneratedPlan; reason?: undefined }
+  | { plan: null; reason: string };
+
 async function aiPlan(
   ctx: GenContext,
   candidates: Candidate[],
   split: Split,
-): Promise<GeneratedPlan | null> {
+): Promise<AiOutcome> {
   const client = getAnthropic();
-  if (!client) return null;
+  if (!client) {
+    console.warn("[stax] ANTHROPIC_API_KEY is not set; using template program generation.");
+    return { plan: null, reason: "ANTHROPIC_API_KEY is not set" };
+  }
 
   const bySlug = new Map(candidates.map((c) => [c.slug, c]));
   const budget = exerciseBudget(ctx.sessionMinutes);
@@ -209,14 +218,28 @@ async function aiPlan(
       messages: [{ role: "user", content: user }],
     });
     text = resp.content.map((b) => (b.type === "text" ? b.text : "")).join("");
-  } catch {
-    return null;
+  } catch (err) {
+    const status = (err as { status?: number } | null)?.status;
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(
+      `[stax] AI program generation failed (model ${AI_MODEL}${status ? `, HTTP ${status}` : ""}): ${message}`,
+    );
+    return {
+      plan: null,
+      reason: `Anthropic API error${status ? ` (HTTP ${status})` : ""}`,
+    };
   }
 
   const json = extractJson(text);
-  if (!json) return null;
+  if (!json) {
+    console.error("[stax] AI program generation returned no parseable JSON.");
+    return { plan: null, reason: "AI response was not valid JSON" };
+  }
   const parsed = aiSchema.safeParse(json);
-  if (!parsed.success) return null;
+  if (!parsed.success) {
+    console.error("[stax] AI program generation returned JSON in an unexpected shape.");
+    return { plan: null, reason: "AI response had an unexpected shape" };
+  }
 
   const days: GeneratedDay[] = split.days.map((day, i) => {
     const aiDay = parsed.data.days[i];
@@ -241,9 +264,14 @@ async function aiPlan(
 
   // If the model under-delivered on any day, the plan is unusable — bail to
   // the deterministic fill so the user always gets a complete program.
-  if (days.some((d) => d.exercises.length < 3)) return null;
+  if (days.some((d) => d.exercises.length < 3)) {
+    console.error(
+      "[stax] AI program generation under-delivered (a day had fewer than 3 valid exercises).",
+    );
+    return { plan: null, reason: "AI plan was incomplete" };
+  }
 
-  return { split_name: split.name, generated_by: "ai", days };
+  return { plan: { split_name: split.name, generated_by: "ai", days } };
 }
 
 // ---------------------------------------------------------------------
@@ -263,5 +291,6 @@ export async function generateProgramPlan(
     };
   }
   const ai = await aiPlan(ctx, candidates, split);
-  return ai ?? deterministicPlan(ctx, candidates, split);
+  if (ai.plan) return ai.plan;
+  return { ...deterministicPlan(ctx, candidates, split), fallback_reason: ai.reason };
 }
